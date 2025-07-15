@@ -1,98 +1,199 @@
--- Загрузка библиотеки Rayfield
+-- Улучшенный скрипт CoolGUI с полным функционалом
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
 
--- Создание основного окна в стиле CoolGUI
+-- Основное окно
 local Window = Rayfield:CreateWindow({
     Name = "c00lgui Reborn",
-    LoadingTitle = "Loading c00lkidd scripts...",
-    LoadingSubtitle = "v2.2 | FE Bypass Enabled",
+    LoadingTitle = "Initializing c00lkidd scripts...",
+    LoadingSubtitle = "v3.1 | FE Compatible",
     ConfigurationSaving = { Enabled = false },
     Theme = {
         Background = Color3.fromRGB(10, 10, 20),
         Text = Color3.fromRGB(220, 220, 255),
-        Glow = Color3.fromRGB(100, 0, 255) -- Неоновое сияние
+        Glow = Color3.fromRGB(100, 0, 255)
     }
 })
 
--- Вкладка "Основные"
-local MainTab = Window:CreateTab("Основные", "rbxassetid://1365169983")
-local MainSection = MainTab:CreateSection("Персонаж")
+-- Инициализация персонажа
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
 
-MainTab:CreateSlider("Скорость", 16, 300, 50, {
+-- Авто-респавн персонажа
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    Character = newChar
+    Humanoid = newChar:WaitForChild("Humanoid")
+end)
+
+-- Вкладка "Персонаж"
+local PlayerTab = Window:CreateTab("Персонаж", "rbxassetid://1365169983")
+PlayerTab:CreateSlider("Скорость", 16, 300, 16, {
     ValueName = "ед.",
     Callback = function(Value)
-        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
+        if Humanoid then
+            Humanoid.WalkSpeed = Value
+        end
     end
 })
 
-MainTab:CreateSlider("Прыжок", 50, 500, 50, {
+PlayerTab:CreateSlider("Сила прыжка", 50, 500, 50, {
     ValueName = "ед.",
     Callback = function(Value)
-        game.Players.LocalPlayer.Character.Humanoid.JumpPower = Value
+        if Humanoid then
+            Humanoid.JumpPower = Value
+        end
     end
 })
+
+-- Функция спама декалами
+local function applyDecals()
+    local DecalID = 1365169983
+    local faces = {"Top", "Bottom", "Left", "Right", "Front", "Back"}
+    
+    for _, part in ipairs(workspace:GetDescendants()) do
+        if part:IsA("BasePart") then
+            for _, face in ipairs(faces) do
+                local decal = Instance.new("Decal")
+                decal.Texture = "rbxassetid://"..DecalID
+                decal.Face = face
+                decal.Parent = part
+            end
+        end
+    end
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Character then
+            for _, part in ipairs(player.Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    for _, face in ipairs(faces) do
+                        local decal = Instance.new("Decal")
+                        decal.Texture = "rbxassetid://"..DecalID
+                        decal.Face = face
+                        decal.Parent = part
+                    end
+                end
+            end
+        end
+    end
+end
 
 -- Вкладка "Визуал"
 local VisualTab = Window:CreateTab("Визуал", "rbxassetid://138080479")
-local DecalSection = VisualTab:CreateSection("Спам декалами")
-
-VisualTab:CreateButton("Наклеить декали", function()
-    local DecalID = 1365169983
-    for _, part in ipairs(workspace:GetDescendants()) do
-        if part:IsA("BasePart") then
-            local decal = Instance.new("Decal")
-            decal.Texture = "rbxassetid://"..DecalID
-            decal.Face = "Top"
-            decal.Parent = part
-        end
-    end
+VisualTab:CreateButton("Спам декалами", function()
+    applyDecals()
 end)
 
--- Вкладка "Троллинг"
-local TrollTab = Window:CreateTab("Троллинг")
-local SoundSection = TrollTab:CreateSection("Звуки")
+-- Система полета
+local Flying = false
+local FlySpeed = 50
+local TweenService = game:GetService("TweenService")
 
-TrollTab:CreateInputField({
+VisualTab:CreateToggle("Режим полета", {
+    CurrentValue = false,
+    Callback = function(Value)
+        Flying = Value
+        if Flying then
+            local root = Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                local bodyGyro = Instance.new("BodyGyro")
+                bodyGyro.P = 10000
+                bodyGyro.D = 1000
+                bodyGyro.MaxTorque = Vector3.new(100000, 100000, 100000)
+                bodyGyro.CFrame = root.CFrame
+                bodyGyro.Parent = root
+                
+                local bodyVelocity = Instance.new("BodyVelocity")
+                bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                bodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000)
+                bodyVelocity.Parent = root
+                
+                game:GetService("RunService").Heartbeat:Connect(function()
+                    if not Flying then return end
+                    
+                    local cam = workspace.CurrentCamera
+                    local direction = cam.CFrame.LookVector
+                    
+                    if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then
+                        bodyVelocity.Velocity = direction * FlySpeed
+                    elseif game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then
+                        bodyVelocity.Velocity = -direction * FlySpeed
+                    else
+                        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                    end
+                    
+                    if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then
+                        bodyVelocity.Velocity = bodyVelocity.Velocity + Vector3.new(0, FlySpeed/2, 0)
+                    end
+                end)
+            end
+        else
+            if Character:FindFirstChild("HumanoidRootPart") then
+                for _, obj in ipairs(Character.HumanoidRootPart:GetChildren()) do
+                    if obj:IsA("BodyVelocity") or obj:IsA("BodyGyro") then
+                        obj:Destroy()
+                    end
+                end
+            end
+        end
+    end
+})
+
+-- Система звуков
+local SoundTab = Window:CreateTab("Звуки", "rbxassetid://8127297852")
+local SoundID = 138080479
+
+SoundTab:CreateInputField({
     Name = "ID звука",
     PlaceholderText = "Введите ID...",
     Callback = function(Text)
-        _G.SoundID = tonumber(Text) or 138080479
+        SoundID = tonumber(Text) or 138080479
     end
 })
 
-TrollTab:CreateButton("Spooky Skeletons", function()
-    for _, player in ipairs(game.Players:GetPlayers()) do
+SoundTab:CreateButton("Проиграть всем", function()
+    for _, player in ipairs(Players:GetPlayers()) do
         if player.Character then
-            local sound = Instance.new("Sound")
-            sound.SoundId = "rbxassetid://138080479"
-            sound.Parent = player.Character:FindFirstChild("Head")
-            sound:Play()
+            local head = player.Character:FindFirstChild("Head")
+            if head then
+                local sound = Instance.new("Sound")
+                sound.SoundId = "rbxassetid://"..SoundID
+                sound.Parent = head
+                sound:Play()
+                game:GetService("Debris"):AddItem(sound, 10)
+            end
         end
     end
 end)
 
--- Вкладка "FE Bypass"
-local FEBypassTab = Window:CreateTab("FE Bypass", "rbxassetid://8127297852")
-FEBypassTab:CreateParagraph({
-    Title = "⚠️ Внимание",
-    Content = "FE-скрипты могут не работать на некоторых играх."
-})
-
-FEBypassTab:CreateButton("FE Destroy GUI", {
-    Callback = function()
-        loadstring(game:HttpGet("https://pastebin.com/raw/FEbypassScript"))()
+-- Система вращения
+local Spinning = false
+local TrollTab = Window:CreateTab("Троллинг")
+TrollTab:CreateToggle("Режим спина", {
+    CurrentValue = false,
+    Callback = function(Value)
+        Spinning = Value
+        if Spinning then
+            spinLoop = game:GetService("RunService").Heartbeat:Connect(function()
+                if not Spinning then spinLoop:Disconnect() return end
+                if Character and Character:FindFirstChild("HumanoidRootPart") then
+                    Character.HumanoidRootPart.CFrame = Character.HumanoidRootPart.CFrame * CFrame.Angles(0, math.rad(30), 0)
+                end
+            end)
+        end
     end
 })
 
--- Анимации и стилизация
+-- Кнопка выхода
+TrollTab:CreateButton("Закрыть GUI", function()
+    Rayfield:Destroy()
+end)
+
 Rayfield:Notify({
     Title = "c00lgui Activated",
-    Content = "Welcome back, c00lkidd!",
-    Duration = 5,
-    Image = "rbxassetid://138080479",
-    Actions = {
-        Ignore = { Name = "OK" }
-    }
+    Content = "Script loaded successfully!",
+    Duration = 3,
+    Image = "rbxassetid://1365169983"
 })
 
 Rayfield:LoadConfiguration()
